@@ -10,7 +10,6 @@ CREATE TABLE customer (
 
 CREATE TABLE stylist (
     id         UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID           NOT NULL UNIQUE REFERENCES "user"(id),
     branch_id  UUID           NOT NULL REFERENCES branch(id),
     first_name VARCHAR(80)    NOT NULL,
     last_name  VARCHAR(80),

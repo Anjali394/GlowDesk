@@ -1,0 +1,3 @@
+ALTER TABLE stylist DROP COLUMN IF EXISTS user_id;
+
+DELETE FROM role WHERE name = 'STYLIST';
