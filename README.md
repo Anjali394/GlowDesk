@@ -19,7 +19,7 @@ A production-ready backend REST API for salon appointment management built with 
 
 ## Features (MVP)
 
-- Role-based authentication (CUSTOMER, RECEPTIONIST, STYLIST, ADMIN)
+- Role-based authentication (CUSTOMER, RECEPTIONIST, ADMIN)
 - Service & combo package management
 - Appointment booking with conflict prevention
 - Stylist auto-assignment by availability and rating
