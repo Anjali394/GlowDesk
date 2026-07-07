@@ -66,8 +66,18 @@ public class AppointmentBookingService {
                 .sum();
 
         // Generate slots every 30 minutes within operating hours
+        // For today: start from next 30-min boundary after current time
+        // For future dates: start from branch opening time
         List<LocalTime> slots = new ArrayList<>();
-        LocalTime cursor = branch.getOpeningTime();
+        LocalTime cursor;
+        if (date.isEqual(LocalDate.now())) {
+            LocalTime now = LocalTime.now();
+            int minutesToNextSlot = 30 - (now.getMinute() % 30);
+            LocalTime nextSlot = now.plusMinutes(minutesToNextSlot).withSecond(0).withNano(0);
+            cursor = nextSlot.isBefore(branch.getOpeningTime()) ? branch.getOpeningTime() : nextSlot;
+        } else {
+            cursor = branch.getOpeningTime();
+        }
         LocalTime latestStart = branch.getClosingTime().minusMinutes(totalDuration);
 
         while (!cursor.isAfter(latestStart)) {
