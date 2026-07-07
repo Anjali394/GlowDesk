@@ -39,12 +39,14 @@ jwt:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
   api-docs:
     path: /api-docs
+  use-management-port: false
 
 management:
   endpoints:
