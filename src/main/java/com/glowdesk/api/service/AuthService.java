@@ -56,7 +56,7 @@ public class AuthService {
         customerRepository.save(customer);
 
         String token = jwtUtil.generateToken(user.getEmail());
-        return buildResponse(user, token);
+        return buildResponse(user, token, "Registered successfully. Please login to continue.");
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -72,13 +72,13 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(user.getEmail());
-        return buildResponse(user, token);
+        return buildResponse(user, token, "Logged in successfully.");
     }
 
-    private AuthResponse buildResponse(User user, String token) {
+    private AuthResponse buildResponse(User user, String token, String message) {
         Set<String> roles = user.getRoles().stream()
                 .map(Role::getName)
                 .collect(Collectors.toSet());
-        return new AuthResponse(token, user.getId(), user.getEmail(), roles);
+        return new AuthResponse(message, token, user.getId(), user.getEmail(), roles);
     }
 }

@@ -1,5 +1,7 @@
 package com.glowdesk.api.config;
 
+import com.glowdesk.api.security.JwtAccessDeniedHandler;
+import com.glowdesk.api.security.JwtAuthEntryPoint;
 import com.glowdesk.api.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -23,9 +25,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final JwtAuthEntryPoint jwtAuthEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     private static final String[] PUBLIC_URLS = {
         "/api/v1/auth/**",
+        "/api/v1/services",
+        "/api/v1/combos",
+        "/api/v1/stylists",
+        "/api/v1/appointments/slots",
         "/swagger-ui.html",
         "/swagger-ui/**",
         "/api-docs/**",
@@ -40,6 +48,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_URLS).permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(jwtAuthEntryPoint)
+                .accessDeniedHandler(jwtAccessDeniedHandler)
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
