@@ -2,50 +2,62 @@ package com.glowdesk.api.service;
 
 import com.glowdesk.api.entity.Appointment;
 import com.glowdesk.api.entity.Customer;
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final RestClient restClient;
 
     @Value("${mail.from:onboarding@resend.dev}")
     private String fromEmail;
 
+    public EmailService(@Value("${MAIL_PASSWORD}") String apiKey) {
+        this.restClient = RestClient.builder()
+                .baseUrl("https://api.resend.com")
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
+
     @Async
     public void sendConfirmationEmail(Customer customer, Appointment appointment) {
-        String to = customer.getUser().getEmail();
-        String subject = "Your GlowDesk appointment is confirmed!";
-        String body = buildConfirmationHtml(customer, appointment);
-        send(to, subject, body);
+        send(
+            customer.getUser().getEmail(),
+            "Your GlowDesk appointment is confirmed!",
+            buildConfirmationHtml(customer, appointment)
+        );
     }
 
     @Async
     public void sendReminderEmail(Customer customer, Appointment appointment) {
-        String to = customer.getUser().getEmail();
-        String subject = "Reminder: Your appointment starts in 30 minutes";
-        String body = buildReminderHtml(customer, appointment);
-        send(to, subject, body);
+        send(
+            customer.getUser().getEmail(),
+            "Reminder: Your appointment starts in 30 minutes",
+            buildReminderHtml(customer, appointment)
+        );
     }
 
     private void send(String to, String subject, String html) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(html, true);
-            mailSender.send(message);
+            restClient.post()
+                    .uri("/emails")
+                    .body(Map.of(
+                            "from", fromEmail,
+                            "to", to,
+                            "subject", subject,
+                            "html", html))
+                    .retrieve()
+                    .toBodilessEntity();
             log.info("Email sent to {}: {}", to, subject);
         } catch (Exception e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
@@ -61,7 +73,7 @@ public class EmailService {
                   <tr><td><b>Date</b></td><td>%s</td></tr>
                   <tr><td><b>Time</b></td><td>%s</td></tr>
                   <tr><td><b>Stylist</b></td><td>%s</td></tr>
-                  <tr><td><b>Total</b></td><td>₹%s</td></tr>
+                  <tr><td><b>Total</b></td><td>&#8377;%s</td></tr>
                 </table>
                 <p>Please arrive 5 minutes early. See you soon!</p>
                 <p>— GlowDesk Team</p>
