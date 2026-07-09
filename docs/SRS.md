@@ -4,7 +4,7 @@
 
 - **Version:** 1.0 (MVP)
 - **Project Type:** Backend REST API
-- **Target Stack:** Java 21, Spring Boot 3.4.x, PostgreSQL (Neon), Railway
+- **Target Stack:** Java 21, Spring Boot 3.5.x, PostgreSQL (Neon), Railway
 
 ---
 
@@ -24,6 +24,7 @@ The MVP supports **one salon branch** but is architected for **future multi-bran
 - Receptionist approval workflow with auto-expiry
 - Double-booking and time conflict prevention
 - In-app notification system
+- Email notifications (confirmation + pre-appointment reminder)
 - Scalable, production-ready architecture
 
 ---
@@ -49,6 +50,8 @@ The MVP supports **one salon branch** but is architected for **future multi-bran
 - Rate the stylist after a COMPLETED appointment (1–5 stars)
 - View appointment history
 - Receive in-app notifications
+- Receive email confirmation on booking approval
+- Receive email reminder 30 minutes before appointment start
 
 ## Receptionist
 - View pending bookings
@@ -130,9 +133,11 @@ Receptionist must Confirm or Reject a PENDING booking within **30 minutes**.
 
 | Action | Result | Notifications |
 |---|---|---|
-| Confirm | Status → CONFIRMED | Customer notified |
-| Reject | Status → REJECTED | Customer notified (with optional reason) |
-| No action in 30 min | Status → EXPIRED (scheduler) | Customer notified |
+| Confirm | Status → CONFIRMED | Customer notified (in-app + email) |
+| Reject | Status → REJECTED | Customer notified (in-app, with optional reason) |
+| No action in 30 min | Status → EXPIRED (scheduler) | Customer notified (in-app) |
+
+On confirmation, the system also schedules an **email reminder** to fire 30 minutes before the appointment's start time (sent immediately if the appointment is within 30 minutes).
 
 ## FR-09 Appointment Status State Machine
 
@@ -165,7 +170,9 @@ Status transitions:
 
 ## FR-11 Notifications
 
-All notifications are **in-app only** for MVP (stored in `notification` table). Email / SMS is planned for Phase 2.
+GlowDesk sends both **in-app** and **email** notifications.
+
+### In-app notifications (stored in `notification` table)
 
 | Event | Notified |
 |---|---|
@@ -175,6 +182,15 @@ All notifications are **in-app only** for MVP (stored in `notification` table). 
 | Booking expired (auto) | Customer |
 | Booking completed | Customer |
 | Booking cancelled | Receptionist |
+
+### Email notifications (async via Gmail SMTP)
+
+| Event | Email sent to | Content |
+|---|---|---|
+| Booking confirmed | Customer | Confirmation email with date, time, stylist, total price |
+| 30 min before start | Customer | Reminder email with appointment details |
+
+Email is sent asynchronously (`@Async`) so it never blocks the API response. If email delivery fails (e.g. SMTP error), the failure is logged but does not affect the status transition.
 
 ## FR-12 Admin Dashboard
 
@@ -221,7 +237,7 @@ Admin can view:
 | Layer | Technology | Decision Rationale |
 |---|---|---|
 | Language | Java 21 | LTS, virtual threads, modern features |
-| Framework | Spring Boot 3.4.x | Auto-config, production-ready ecosystem |
+| Framework | Spring Boot 3.5.x | Auto-config, production-ready ecosystem |
 | Concurrency | Virtual Threads (Java 21) | High throughput, zero extra cost |
 | Security | Spring Security 6 + JWT (jjwt 0.12.x) | Stateless, role-based, industry standard |
 | Database | PostgreSQL 16 (Neon) | Free managed cloud Postgres |
@@ -232,6 +248,7 @@ Admin can view:
 | Validation | Jakarta Bean Validation | Standard constraint annotations |
 | Error Handling | RFC 7807 Problem Details | Industry-standard, built into Spring Boot 3 |
 | Documentation | springdoc-openapi 2.x | Auto-generates Swagger UI from annotations |
+| Email | Spring Boot Mail (JavaMailSender) | Async SMTP email via Gmail; `@Async` delivery |
 | Testing | JUnit 5 + Mockito + Testcontainers | Unit + real DB integration tests |
 | Monitoring | Spring Boot Actuator | Health check for Railway (`/actuator/health`) |
 | Build | Maven 3.9.x | Standard, wide IDE support |
@@ -290,7 +307,7 @@ Testcontainers uses `@ServiceConnection` (Spring Boot 3.1+) for zero-config test
 ## Phase 2
 - Payments (Razorpay / Stripe)
 - Memberships & Coupons
-- Email / SMS notifications (Mailgun / Twilio)
+- SMS notifications (Twilio)
 
 ## Phase 3
 - Inventory management

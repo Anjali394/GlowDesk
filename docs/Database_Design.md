@@ -232,7 +232,8 @@ src/main/resources/db/migration/
 ├── V4__create_service_combo.sql
 ├── V5__create_appointment.sql
 ├── V6__create_notification.sql
-└── V7__seed_roles.sql
+├── V7__seed_roles.sql
+└── V8__remove_stylist_user_account.sql
 ```
 
 **Rule:** Never edit a migration file after it has been run. To change something, create a new migration file.

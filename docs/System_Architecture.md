@@ -83,9 +83,11 @@ Contains all business logic:
 - Three roles: CUSTOMER, RECEPTIONIST, ADMIN
 
 ### Notification Module
-- In-app only for MVP (stored in `notification` table)
-- Triggered from service layer at key booking lifecycle events
-- Future: pluggable interface for email (Mailgun) / SMS (Twilio)
+- **In-app notifications** stored in the `notification` table — triggered from the service layer at key booking lifecycle events (booking created, confirmed, rejected, expired, completed, cancelled).
+- **Email notifications** sent asynchronously via `EmailService` using Spring Boot Mail (JavaMailSender / Gmail SMTP):
+  - **Confirmation email** — sent immediately when receptionist confirms a booking (includes date, time, stylist, total price).
+  - **Reminder email** — scheduled for exactly 30 minutes before the appointment start; sent immediately if the appointment is already within 30 minutes. Scheduling is handled by `TaskScheduler` (thread-pool configured in `SchedulerConfig`).
+- Email delivery is `@Async` and non-blocking — SMTP failures are logged but never affect the API response or status transition.
 
 ### Scheduler Module
 - Spring `@Scheduled` task, runs every 60 seconds
@@ -108,6 +110,7 @@ Contains all business logic:
 | Appointment | Booking, auto-assign, status transitions, conflict prevention |
 | Rating | Customer rates stylist after COMPLETED appointment |
 | Notification | Create and read in-app notifications |
+| Email | Async confirmation email + scheduled 30-min reminder via Gmail SMTP |
 | Admin Dashboard | Aggregated stats, stylist performance |
 | Scheduler | Auto-expiry of PENDING appointments past 30 min |
 
@@ -160,7 +163,9 @@ Customer → POST /api/v1/appointments
   └── Trigger notifications → Customer + Receptionist
 
 Receptionist → PATCH /api/v1/appointments/{id}/confirm
-  └── PENDING → CONFIRMED → Notify Customer
+  ├── PENDING → CONFIRMED → Notify Customer (in-app)
+  ├── Send confirmation email to Customer (async)
+  └── Schedule reminder email 30 min before appointment start (async)
 
 Receptionist → PATCH /api/v1/appointments/{id}/reject
   └── PENDING → REJECTED → Notify Customer
@@ -248,6 +253,17 @@ spring:
   threads:
     virtual:
       enabled: true             # Java 21 virtual threads
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 jwt:
   secret: ${JWT_SECRET}
