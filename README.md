@@ -23,6 +23,7 @@ Customers book appointments online. The system auto-assigns the best available s
 
 | Resource | URL |
 |---|---|
+| Frontend | `https://glowdesk-frontend.vercel.app` |
 | API Base | `https://glowdesk-77dd.onrender.com/api/v1` |
 | Swagger UI | `https://glowdesk-77dd.onrender.com/swagger-ui/index.html` |
 | Health Check | `https://glowdesk-77dd.onrender.com/actuator/health` |
