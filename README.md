@@ -23,11 +23,11 @@ Customers book appointments online. The system auto-assigns the best available s
 
 | Resource | URL |
 |---|---|
-| API Base | `https://glowdesk-production-8407.up.railway.app/api/v1` |
-| Swagger UI | `https://glowdesk-production-8407.up.railway.app/swagger-ui.html` |
-| Health Check | `https://glowdesk-production-8407.up.railway.app/actuator/health` |
+| API Base | `https://glowdesk-77dd.onrender.com/api/v1` |
+| Swagger UI | `https://glowdesk-77dd.onrender.com/swagger-ui/index.html` |
+| Health Check | `https://glowdesk-77dd.onrender.com/actuator/health` |
 
-> Hosted on Railway. Database on Neon PostgreSQL.
+> Hosted on Render. Database on Neon PostgreSQL.
 
 ---
 
@@ -83,9 +83,9 @@ PENDING ──► CONFIRMED ──► COMPLETED
 | Documentation | springdoc-openapi 2.x | Auto-generated Swagger UI |
 | Email | Spring Boot Mail (Gmail SMTP) | Async confirmation + reminder emails |
 | Testing | JUnit 5 + Mockito + Testcontainers | Unit and integration tests |
-| Monitoring | Spring Boot Actuator | Health checks for Railway |
+| Monitoring | Spring Boot Actuator | Health checks for Render |
 | Build | Maven | Dependency management |
-| Deployment | Railway | PaaS, auto-deploy from GitHub |
+| Deployment | Render | PaaS, auto-deploy from GitHub |
 | Container | Docker | Consistent environments |
 
 ---
@@ -170,7 +170,7 @@ mvn test
 
 Integration tests use Testcontainers — Docker must be running.
 
-### Environment Variables (production / Railway)
+### Environment Variables (production / Render)
 
 | Variable | Description |
 |---|---|
