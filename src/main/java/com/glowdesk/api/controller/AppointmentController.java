@@ -2,8 +2,10 @@ package com.glowdesk.api.controller;
 
 import com.glowdesk.api.dto.request.BookAppointmentRequest;
 import com.glowdesk.api.dto.request.RejectAppointmentRequest;
+import com.glowdesk.api.dto.request.RescheduleAppointmentRequest;
 import com.glowdesk.api.dto.response.AppointmentResponse;
 import com.glowdesk.api.dto.response.AvailableSlotsResponse;
+import com.glowdesk.api.enums.AppointmentStatus;
 import com.glowdesk.api.service.AppointmentBookingService;
 import com.glowdesk.api.service.ReceptionistService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,6 +60,21 @@ public class AppointmentController {
         return appointmentBookingService.getMyAppointments();
     }
 
+    @Operation(summary = "Cancel a pending or confirmed appointment [Customer]")
+    @PatchMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public AppointmentResponse cancel(@PathVariable UUID id) {
+        return appointmentBookingService.cancel(id);
+    }
+
+    @Operation(summary = "Reschedule a pending or confirmed appointment [Customer]")
+    @PatchMapping("/{id}/reschedule")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public AppointmentResponse reschedule(@PathVariable UUID id,
+                                          @Valid @RequestBody RescheduleAppointmentRequest request) {
+        return appointmentBookingService.reschedule(id, request);
+    }
+
     // --- Receptionist ---
 
     @Operation(summary = "View all pending appointments for a branch [Receptionist]")
@@ -66,6 +83,15 @@ public class AppointmentController {
     public List<AppointmentResponse> getPending(
             @Parameter(example = "57929888-e65f-4dce-a0b1-bebd04e3594e") @RequestParam UUID branchId) {
         return receptionistService.getPendingAppointments(branchId);
+    }
+
+    @Operation(summary = "View all appointments for a branch, optionally filtered by status [Receptionist]")
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('RECEPTIONIST')")
+    public List<AppointmentResponse> getAll(
+            @Parameter(example = "57929888-e65f-4dce-a0b1-bebd04e3594e") @RequestParam UUID branchId,
+            @RequestParam(required = false) AppointmentStatus status) {
+        return receptionistService.getAllAppointments(branchId, status);
     }
 
     @Operation(summary = "Confirm a pending appointment [Receptionist]")

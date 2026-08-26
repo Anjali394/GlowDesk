@@ -1,5 +1,6 @@
 package com.glowdesk.api.dto.request;
 
+import com.glowdesk.api.enums.Gender;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -22,5 +23,8 @@ public record RegisterRequest(
         String lastName,
 
         @Schema(example = "+xx xxxxxxxxxx")
-        String phone
+        String phone,
+
+        @Schema(example = "FEMALE")
+        Gender gender
 ) {}

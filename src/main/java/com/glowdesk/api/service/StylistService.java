@@ -39,6 +39,7 @@ public class StylistService {
                 .firstName(request.firstName())
                 .lastName(request.lastName())
                 .experience(request.experience())
+                .gender(request.gender())
                 .build();
 
         return toResponse(stylistRepository.save(stylist));
@@ -52,6 +53,7 @@ public class StylistService {
         if (request.firstName() != null) stylist.setFirstName(request.firstName());
         if (request.lastName() != null) stylist.setLastName(request.lastName());
         if (request.experience() != null) stylist.setExperience(request.experience());
+        if (request.gender() != null) stylist.setGender(request.gender());
 
         return toResponse(stylistRepository.save(stylist));
     }

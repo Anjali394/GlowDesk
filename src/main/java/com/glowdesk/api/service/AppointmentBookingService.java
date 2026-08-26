@@ -1,22 +1,26 @@
 package com.glowdesk.api.service;
 
 import com.glowdesk.api.dto.request.BookAppointmentRequest;
+import com.glowdesk.api.dto.request.RescheduleAppointmentRequest;
 import com.glowdesk.api.dto.response.AppointmentResponse;
 import com.glowdesk.api.dto.response.AppointmentServiceResponse;
 import com.glowdesk.api.dto.response.AvailableSlotsResponse;
 import com.glowdesk.api.entity.*;
 import com.glowdesk.api.enums.AppointmentStatus;
 import com.glowdesk.api.enums.DiscountType;
+import com.glowdesk.api.enums.Gender;
 import com.glowdesk.api.exception.BadRequestException;
 import com.glowdesk.api.exception.ResourceNotFoundException;
 import com.glowdesk.api.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -24,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +41,8 @@ public class AppointmentBookingService {
     private final ComboRepository comboRepository;
     private final StylistRepository stylistRepository;
     private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
+    private final TaskScheduler taskScheduler;
 
     public AvailableSlotsResponse getAvailableSlots(UUID branchId, LocalDate date,
                                                      Set<UUID> serviceIds, UUID comboId) {
@@ -65,9 +72,10 @@ public class AppointmentBookingService {
                 .mapToInt(com.glowdesk.api.entity.Service::getDuration)
                 .sum();
 
-        // Generate slots every 30 minutes within operating hours
-        // For today: start from next 30-min boundary after current time
-        // For future dates: start from branch opening time
+        // 2 queries instead of one per slot
+        List<Stylist> allStylists = stylistRepository.findByBranchIdAndIsActiveTrueOrderByRatingDesc(branchId);
+        List<Appointment> booked = appointmentRepository.findBookedAppointmentsWithStylist(branchId, date);
+
         List<LocalTime> slots = new ArrayList<>();
         LocalTime cursor;
         if (date.isEqual(LocalDate.now())) {
@@ -81,10 +89,15 @@ public class AppointmentBookingService {
         LocalTime latestStart = branch.getClosingTime().minusMinutes(totalDuration);
 
         while (!cursor.isAfter(latestStart)) {
-            LocalTime slotEnd = cursor.plusMinutes(totalDuration);
-            List<Stylist> available = stylistRepository.findAvailableStylists(
-                    branchId, date, cursor, slotEnd);
-            if (!available.isEmpty()) {
+            final LocalTime slotStart = cursor;
+            final LocalTime slotEnd = cursor.plusMinutes(totalDuration);
+
+            Set<UUID> busyIds = booked.stream()
+                    .filter(a -> a.getStartTime().isBefore(slotEnd) && a.getEndTime().isAfter(slotStart))
+                    .map(a -> a.getStylist().getId())
+                    .collect(Collectors.toSet());
+
+            if (allStylists.stream().anyMatch(s -> !busyIds.contains(s.getId()))) {
                 slots.add(cursor);
             }
             cursor = cursor.plusMinutes(30);
@@ -145,7 +158,7 @@ public class AppointmentBookingService {
                     "No available stylist for " + request.scheduledDate() +
                     " from " + request.startTime() + " to " + endTime);
         }
-        Stylist stylist = available.get(0); // highest rated — query orders by rating DESC
+        Stylist stylist = selectStylist(available, customer.getGender());
 
         // Phase 6: Snapshot prices and calculate total
         BigDecimal totalPrice = services.stream()
@@ -187,6 +200,7 @@ public class AppointmentBookingService {
 
         appointment.getAppointmentServices().addAll(appointmentServices);
         appointmentRepository.save(appointment);
+        scheduleReceptionistNotification(appointment, customer);
 
         return toResponse(appointment, totalDuration);
     }
@@ -201,7 +215,106 @@ public class AppointmentBookingService {
                 .toList();
     }
 
+    @Transactional
+    public AppointmentResponse cancel(UUID id) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Customer customer = resolveCustomer(email);
+
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + id));
+
+        if (!appointment.getCustomer().getId().equals(customer.getId())) {
+            throw new BadRequestException("Appointment does not belong to the current user");
+        }
+        if (appointment.getStatus() != AppointmentStatus.PENDING
+                && appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new BadRequestException(
+                    "Only PENDING or CONFIRMED appointments can be cancelled. Current status: "
+                    + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        return toResponse(appointmentRepository.save(appointment), totalDurationOf(appointment));
+    }
+
+    @Transactional
+    public AppointmentResponse reschedule(UUID id, RescheduleAppointmentRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Customer customer = resolveCustomer(email);
+
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + id));
+
+        if (!appointment.getCustomer().getId().equals(customer.getId())) {
+            throw new BadRequestException("Appointment does not belong to the current user");
+        }
+        if (appointment.getStatus() != AppointmentStatus.PENDING
+                && appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new BadRequestException(
+                    "Only PENDING or CONFIRMED appointments can be rescheduled. Current status: "
+                    + appointment.getStatus());
+        }
+
+        int totalDuration = totalDurationOf(appointment);
+        LocalTime newEndTime = request.startTime().plusMinutes(totalDuration);
+
+        List<Stylist> available = stylistRepository.findAvailableStylists(
+                appointment.getBranch().getId(), request.scheduledDate(),
+                request.startTime(), newEndTime);
+
+        if (available.isEmpty()) {
+            throw new BadRequestException(
+                    "No available stylist for " + request.scheduledDate() +
+                    " from " + request.startTime() + " to " + newEndTime);
+        }
+
+        appointment.setScheduledDate(request.scheduledDate());
+        appointment.setStartTime(request.startTime());
+        appointment.setEndTime(newEndTime);
+        appointment.setStylist(selectStylist(available, customer.getGender()));
+        appointment.setStatus(AppointmentStatus.PENDING);
+        appointment.setExpiresAt(OffsetDateTime.now().plusMinutes(30));
+        appointmentRepository.save(appointment);
+        scheduleReceptionistNotification(appointment, customer);
+
+        return toResponse(appointment, totalDuration);
+    }
+
     // --- Helpers ---
+
+    private Stylist selectStylist(List<Stylist> available, Gender customerGender) {
+        if (customerGender == Gender.FEMALE) {
+            return available.stream()
+                    .filter(s -> s.getGender() == Gender.FEMALE)
+                    .findFirst()
+                    .orElse(available.get(0));
+        }
+        return available.get(0);
+    }
+
+    private void scheduleReceptionistNotification(Appointment appointment, Customer customer) {
+        Instant notifyAt = appointment.getExpiresAt().minusMinutes(15).toInstant();
+        String title = "Appointment requires action";
+        String message = String.format(
+                "Appointment for %s %s at %s on %s from %s expires in 15 minutes. Please confirm or reject.",
+                customer.getFirstName(), customer.getLastName(),
+                appointment.getBranch().getName(),
+                appointment.getScheduledDate(),
+                appointment.getStartTime());
+
+        taskScheduler.schedule(() -> {
+            List<User> receptionists = userRepository.findByRoles_Name("RECEPTIONIST");
+            List<Notification> notifications = receptionists.stream()
+                    .map(r -> Notification.builder()
+                            .user(r)
+                            .type("PENDING_ACTION")
+                            .title(title)
+                            .message(message)
+                            .build())
+                    .toList();
+            notificationRepository.saveAll(notifications);
+        }, notifyAt);
+    }
 
     private Customer resolveCustomer(String email) {
         User user = userRepository.findByEmail(email)
@@ -231,6 +344,7 @@ public class AppointmentBookingService {
                 a.getStylist().getId(),
                 a.getStylist().getFirstName() + " " + a.getStylist().getLastName(),
                 a.getBranch().getId(),
+                a.getBranch().getName(),
                 a.getCombo() != null ? a.getCombo().getId() : null,
                 a.getStatus(),
                 a.getScheduledDate(),

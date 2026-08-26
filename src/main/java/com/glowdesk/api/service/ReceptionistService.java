@@ -36,6 +36,13 @@ public class ReceptionistService {
                 .toList();
     }
 
+    public List<AppointmentResponse> getAllAppointments(UUID branchId, AppointmentStatus status) {
+        List<Appointment> appointments = status != null
+                ? appointmentRepository.findByBranchIdAndStatus(branchId, status)
+                : appointmentRepository.findByBranchIdOrderByScheduledDateDescStartTimeAsc(branchId);
+        return appointments.stream().map(this::toResponse).toList();
+    }
+
     @Transactional
     public AppointmentResponse confirm(UUID id) {
         Appointment appointment = findAppointment(id);
@@ -49,6 +56,11 @@ public class ReceptionistService {
         appointmentRepository.save(appointment);
 
         Customer customer = appointment.getCustomer();
+
+        // Force-initialize lazy associations while session is open — async thread has no session
+        customer.getUser().getEmail();
+        appointment.getStylist().getFirstName();
+        appointment.getAppointmentServices().forEach(as -> as.getService().getName());
 
         // Send confirmation email immediately
         emailService.sendConfirmationEmail(customer, appointment);
@@ -126,6 +138,7 @@ public class ReceptionistService {
                 a.getStylist().getId(),
                 a.getStylist().getFirstName() + " " + a.getStylist().getLastName(),
                 a.getBranch().getId(),
+                a.getBranch().getName(),
                 a.getCombo() != null ? a.getCombo().getId() : null,
                 a.getStatus(),
                 a.getScheduledDate(),

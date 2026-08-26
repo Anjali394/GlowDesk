@@ -1,5 +1,6 @@
 package com.glowdesk.api.dto.request;
 
+import com.glowdesk.api.enums.Gender;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -21,5 +22,8 @@ public record CreateStylistRequest(
 
         @Min(0)
         @Schema(example = "3")
-        int experience
+        int experience,
+
+        @Schema(example = "FEMALE")
+        Gender gender
 ) {}

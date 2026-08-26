@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
+import com.glowdesk.api.enums.Gender;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -29,6 +30,10 @@ public class Customer {
 
     @Column(length = 20)
     private String phone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Gender gender;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
