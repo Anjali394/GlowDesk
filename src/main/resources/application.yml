@@ -56,3 +56,8 @@ management:
   health:
     mail:
       enabled: false
+
+logging:
+  level:
+    com.glowdesk: DEBUG
+    org.springframework.aop.interceptor: ERROR

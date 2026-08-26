@@ -35,6 +35,7 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_URLS = {
         "/api/v1/auth/**",
+        "/api/v1/branches/**",
         "/api/v1/services",
         "/api/v1/combos",
         "/api/v1/stylists",

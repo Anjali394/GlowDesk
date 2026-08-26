@@ -28,6 +28,12 @@ public class Branch {
     @Column(columnDefinition = "TEXT")
     private String address;
 
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 100)
+    private String state;
+
     @Column(length = 20)
     private String phone;
 

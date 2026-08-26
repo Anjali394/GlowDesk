@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
+import com.glowdesk.api.enums.Gender;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -27,6 +28,10 @@ public class Stylist {
 
     @Column(name = "last_name", length = 80)
     private String lastName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Gender gender;
 
     @Column(nullable = false)
     private int experience;

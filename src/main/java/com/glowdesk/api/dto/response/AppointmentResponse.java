@@ -26,6 +26,9 @@ public record AppointmentResponse(
         @Schema(example = "57929888-e65f-4dce-a0b1-bebd04e3594e")
         UUID branchId,
 
+        @Schema(example = "GlowDesk Koramangala")
+        String branchName,
+
         @Schema(example = "257bcd90-f758-40fe-9a72-e01f18a1c7d8")
         UUID comboId,
 

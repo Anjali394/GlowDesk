@@ -52,6 +52,7 @@ public class AuthService {
                 .firstName(request.firstName())
                 .lastName(request.lastName())
                 .phone(request.phone())
+                .gender(request.gender())
                 .build();
         customerRepository.save(customer);
 
@@ -79,6 +80,9 @@ public class AuthService {
         Set<String> roles = user.getRoles().stream()
                 .map(Role::getName)
                 .collect(Collectors.toSet());
-        return new AuthResponse(message, token, user.getId(), user.getEmail(), roles);
+        String firstName = customerRepository.findByUserId(user.getId())
+                .map(Customer::getFirstName)
+                .orElse(null);
+        return new AuthResponse(message, token, user.getId(), user.getEmail(), roles, firstName);
     }
 }

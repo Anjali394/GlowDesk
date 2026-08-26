@@ -14,6 +14,8 @@ public interface StylistRepository extends JpaRepository<Stylist, UUID> {
 
     List<Stylist> findByBranchIdAndIsActiveTrue(UUID branchId);
 
+    List<Stylist> findByBranchIdAndIsActiveTrueOrderByRatingDesc(UUID branchId);
+
     @Query("""
         SELECT s FROM Stylist s
         WHERE s.branch.id = :branchId

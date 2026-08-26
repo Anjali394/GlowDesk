@@ -1,5 +1,6 @@
 package com.glowdesk.api.dto.request;
 
+import com.glowdesk.api.enums.Gender;
 import jakarta.validation.constraints.Min;
 
 public record UpdateStylistRequest(
@@ -7,5 +8,7 @@ public record UpdateStylistRequest(
         String lastName,
 
         @Min(0)
-        Integer experience
+        Integer experience,
+
+        Gender gender
 ) {}
